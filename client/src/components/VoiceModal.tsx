@@ -9,6 +9,112 @@ interface VoiceModalProps {
   onClose: () => void;
 }
 
+const getCompanyContent = (company: string) => {
+  const companyLower = company.toLowerCase();
+  
+  if (companyLower.includes("bakery")) {
+    return {
+      greeting: "Hello! Welcome to our bakery. How can I help you today?",
+      info: [
+        "Fresh bread baked daily from 6 AM",
+        "Specialty pastries and custom cakes available",
+        "Gluten-free options on request",
+        "Catering services for events"
+      ]
+    };
+  } else if (companyLower.includes("restaurant")) {
+    return {
+      greeting: "Good day! Thank you for calling. What can I do for you?",
+      info: [
+        "Open 11 AM - 10 PM daily",
+        "Reservations recommended for weekends",
+        "Traditional and contemporary cuisine",
+        "Private dining rooms available"
+      ]
+    };
+  } else if (companyLower.includes("clinic") || companyLower.includes("health")) {
+    return {
+      greeting: "Hello, you've reached our clinic. How may I assist you?",
+      info: [
+        "Walk-in appointments welcome",
+        "Specialist consultations available",
+        "Health check-up packages offered",
+        "Emergency services 24/7"
+      ]
+    };
+  } else if (companyLower.includes("hotel")) {
+    return {
+      greeting: "Welcome! Thank you for contacting us. How can I help?",
+      info: [
+        "Luxury accommodations with modern amenities",
+        "Conference facilities for business events",
+        "Fine dining restaurant on premises",
+        "Spa and wellness center available"
+      ]
+    };
+  } else if (companyLower.includes("bank")) {
+    return {
+      greeting: "Hello! You've reached our banking services. What can I help you with?",
+      info: [
+        "Personal and business banking solutions",
+        "Investment and loan services",
+        "24/7 online banking available",
+        "Financial advisory services"
+      ]
+    };
+  } else if (companyLower.includes("tech") || companyLower.includes("digital") || companyLower.includes("systems")) {
+    return {
+      greeting: "Hi there! Welcome to our tech solutions. How can I assist?",
+      info: [
+        "Custom software development",
+        "Cloud infrastructure solutions",
+        "IT consulting and support",
+        "Digital transformation services"
+      ]
+    };
+  } else if (companyLower.includes("industries") || companyLower.includes("solutions")) {
+    return {
+      greeting: "Hello! Thank you for reaching out. What can I do for you?",
+      info: [
+        "Industrial equipment and machinery",
+        "Custom manufacturing solutions",
+        "Quality control and testing",
+        "Worldwide shipping available"
+      ]
+    };
+  } else if (companyLower.includes("logistics") || companyLower.includes("travel")) {
+    return {
+      greeting: "Welcome! How can we help with your logistics needs today?",
+      info: [
+        "Domestic and international shipping",
+        "Real-time package tracking",
+        "Express delivery options",
+        "Warehouse and distribution services"
+      ]
+    };
+  } else if (companyLower.includes("foods")) {
+    return {
+      greeting: "Hello! Welcome to our food services. What can I help you with?",
+      info: [
+        "Premium quality food products",
+        "Wholesale and retail distribution",
+        "Fresh produce delivered daily",
+        "Bulk order discounts available"
+      ]
+    };
+  } else {
+    return {
+      greeting: "Hello! Thank you for calling. How may I assist you today?",
+      info: [
+        "Professional business services",
+        "Customer-focused solutions",
+        "Quality guaranteed",
+        "Serving the community since years"
+      ]
+    };
+  }
+};
+
 export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps) {
   const [state, setState] = useState<"idle" | "connecting" | "listening" | "speaking" | "error">("connecting");
   const [isMuted, setIsMuted] = useState(false);
@@ -17,6 +123,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
   if (!isOpen) return null;
 
   const companyInitial = company.charAt(0).toUpperCase();
+  const content = getCompanyContent(company);
 
   const handleHangup = () => {
     setState("idle");
@@ -74,9 +181,27 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           </div>
         )}
 
-        <VoiceVisualizer state={state} companyInitial={companyInitial} />
+        <div className="flex items-center justify-center py-8">
+          <div
+            className={`w-32 h-32 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${
+              state === "connecting" ? "border-primary bg-primary/10" :
+              state === "listening" ? "border-primary bg-primary/20" :
+              state === "speaking" ? "border-chart-2 bg-chart-2/20" :
+              state === "error" ? "border-destructive bg-destructive/20" :
+              "border-border bg-muted/30"
+            }`}
+            data-testid="visualizer-voice"
+          >
+            <div className="text-5xl font-bold text-foreground/60">
+              {companyInitial}
+            </div>
+            {state === "connecting" && (
+              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+            )}
+          </div>
+        </div>
 
-        <div className="flex items-center justify-center gap-6 px-4 py-8 pb-safe">
+        <div className="flex items-center justify-center gap-6 px-4 pb-6">
           <Button
             variant="ghost"
             size="icon"
@@ -106,6 +231,29 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           >
             {speakerOn ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </Button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 pb-6" data-testid="content-conversation">
+          <div className="bg-muted/30 rounded-2xl p-4 mb-4">
+            <p className="text-[15px] font-medium text-foreground/90">
+              {content.greeting}
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Quick Info
+            </h3>
+            {content.info.map((item, index) => (
+              <div
+                key={index}
+                className="flex items-start gap-3 bg-card/50 rounded-xl p-3 border border-border/50"
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
+                <p className="text-[15px] text-foreground/80 flex-1">{item}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
