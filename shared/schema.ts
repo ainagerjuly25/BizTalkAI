@@ -79,3 +79,16 @@ export const companies = [
 ];
 
 export type Company = typeof companies[number];
+
+// User schema and types
+export const userSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  email: z.string().email(),
+  createdAt: z.date().default(() => new Date()),
+});
+
+export const insertUserSchema = userSchema.omit({ id: true, createdAt: true });
+
+export type User = z.infer<typeof userSchema>;
+export type InsertUser = z.infer<typeof insertUserSchema>;

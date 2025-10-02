@@ -1,7 +1,7 @@
 import { X, Mic, MicOff, Volume2, VolumeX, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
-import { useRealtimeVoice } from "@/hooks/useRealtimeVoice";
+import { useState, useEffect } from "react";
+import { useWebRTCVoice } from "@/hooks/useWebRTCVoice";
 
 interface VoiceModalProps {
   company: string;
@@ -119,29 +119,51 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
   const [isMuted, setIsMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
 
-  const { connectionState, conversationState, transcript, errorMessage, disconnect } = useRealtimeVoice({
+  const { 
+    state,
+    startSession,
+    stopSession,
+    setAudioElement
+  } = useWebRTCVoice({
     company,
     enabled: isOpen,
   });
+
+  // Set up audio element for playback
+  useEffect(() => {
+    const audioElement = document.createElement('audio');
+    audioElement.autoplay = true;
+    audioElement.preload = 'auto';
+    audioElement.controls = false;
+    audioElement.style.display = 'none';
+    
+    // Add to DOM so it can play audio
+    document.body.appendChild(audioElement);
+    setAudioElement(audioElement);
+    
+    return () => {
+      audioElement.pause();
+      audioElement.srcObject = null;
+      document.body.removeChild(audioElement);
+    };
+  }, [setAudioElement]);
 
   if (!isOpen) return null;
 
   const companyInitial = company.charAt(0).toUpperCase();
   const content = getCompanyContent(company);
 
-  // Determine visual state based on connection and conversation states
-  const visualState = connectionState === "connecting" 
+  // Determine visual state based on connection state
+  const visualState = state.connectionStatus === "connecting" 
     ? "connecting"
-    : connectionState === "error"
+    : state.connectionStatus === "error"
     ? "error"
-    : conversationState === "listening"
-    ? "listening"
-    : conversationState === "speaking"
-    ? "speaking"
+    : state.connectionStatus === "connected"
+    ? "connected"
     : "idle";
 
   const handleHangup = () => {
-    disconnect();
+    stopSession();
     onClose();
   };
 
@@ -180,7 +202,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           </Button>
         </div>
 
-        {connectionState === "connecting" && (
+        {state.connectionStatus === "connecting" && (
           <div className="px-4 py-2 bg-primary/10 border-b border-primary/20">
             <p className="text-sm text-center text-primary font-medium" data-testid="status-connecting">
               Connecting...
@@ -188,18 +210,18 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           </div>
         )}
 
-        {connectionState === "error" && (
+        {state.connectionStatus === "error" && (
           <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
             <p className="text-sm text-center text-destructive font-medium" data-testid="status-error">
-              {errorMessage || "Connection lost. Please try again."}
+              Connection lost. Please try again.
             </p>
           </div>
         )}
 
-        {connectionState === "connected" && conversationState === "idle" && (
+        {state.connectionStatus === "connected" && (
           <div className="px-4 py-2 bg-chart-2/10 border-b border-chart-2/20">
             <p className="text-sm text-center text-chart-2 font-medium" data-testid="status-ready">
-              Connected - Start speaking!
+              Connected - Start speaking! {state.latency && `(${state.latency}ms)`}
             </p>
           </div>
         )}
@@ -208,8 +230,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           <div
             className={`w-32 h-32 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${
               visualState === "connecting" ? "border-primary bg-primary/10" :
-              visualState === "listening" ? "border-primary bg-primary/20" :
-              visualState === "speaking" ? "border-chart-2 bg-chart-2/20" :
+              visualState === "connected" ? "border-chart-2 bg-chart-2/20" :
               visualState === "error" ? "border-destructive bg-destructive/20" :
               "border-border bg-muted/30"
             }`}
@@ -226,10 +247,16 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
             variant="ghost"
             size="icon"
             className="w-12 h-12"
-            onClick={() => setIsMuted(!isMuted)}
-            data-testid="button-mute"
+            onClick={() => {
+              if (state.isSessionActive) {
+                stopSession();
+              } else {
+                startSession();
+              }
+            }}
+            data-testid="button-mic"
           >
-            {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            {state.isSessionActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </Button>
 
           <Button
@@ -254,14 +281,19 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-6" data-testid="content-conversation">
-          {transcript && (
-            <div className="bg-primary/10 rounded-2xl p-4 mb-4 border border-primary/20">
-              <h3 className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">
-                Conversation
+          {/* Debug info - only show in development */}
+          {process.env.NODE_ENV === 'development' && state.activityLogs.length > 0 && (
+            <div className="bg-muted/20 rounded-2xl p-4 mb-4 border border-muted/30">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Debug Log ({state.activityLogs.length} entries)
               </h3>
-              <p className="text-[15px] text-foreground/90 whitespace-pre-wrap">
-                {transcript}
-              </p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {state.activityLogs.slice(-5).map((log, index) => (
+                  <div key={index} className="text-xs text-muted-foreground">
+                    <span className="font-mono">{log.timestamp}</span> - {log.message}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
