@@ -1,7 +1,7 @@
 import { X, Mic, MicOff, Volume2, VolumeX, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import VoiceVisualizer from "./VoiceVisualizer";
 import { useState } from "react";
+import { useRealtimeVoice } from "@/hooks/useRealtimeVoice";
 
 interface VoiceModalProps {
   company: string;
@@ -116,17 +116,32 @@ const getCompanyContent = (company: string) => {
 };
 
 export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps) {
-  const [state, setState] = useState<"idle" | "connecting" | "listening" | "speaking" | "error">("connecting");
   const [isMuted, setIsMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
+
+  const { connectionState, conversationState, transcript, disconnect } = useRealtimeVoice({
+    company,
+    enabled: isOpen,
+  });
 
   if (!isOpen) return null;
 
   const companyInitial = company.charAt(0).toUpperCase();
   const content = getCompanyContent(company);
 
+  // Determine visual state based on connection and conversation states
+  const visualState = connectionState === "connecting" 
+    ? "connecting"
+    : connectionState === "error"
+    ? "error"
+    : conversationState === "listening"
+    ? "listening"
+    : conversationState === "speaking"
+    ? "speaking"
+    : "idle";
+
   const handleHangup = () => {
-    setState("idle");
+    disconnect();
     onClose();
   };
 
@@ -165,7 +180,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           </Button>
         </div>
 
-        {state === "connecting" && (
+        {connectionState === "connecting" && (
           <div className="px-4 py-2 bg-primary/10 border-b border-primary/20">
             <p className="text-sm text-center text-primary font-medium" data-testid="status-connecting">
               Connecting...
@@ -173,10 +188,18 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           </div>
         )}
 
-        {state === "error" && (
+        {connectionState === "error" && (
           <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
             <p className="text-sm text-center text-destructive font-medium" data-testid="status-error">
-              Connection lost
+              Connection lost. Please try again.
+            </p>
+          </div>
+        )}
+
+        {connectionState === "connected" && conversationState === "idle" && (
+          <div className="px-4 py-2 bg-chart-2/10 border-b border-chart-2/20">
+            <p className="text-sm text-center text-chart-2 font-medium" data-testid="status-ready">
+              Connected - Start speaking!
             </p>
           </div>
         )}
@@ -184,10 +207,10 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
         <div className="flex items-center justify-center py-8">
           <div
             className={`w-32 h-32 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${
-              state === "connecting" ? "border-primary bg-primary/10" :
-              state === "listening" ? "border-primary bg-primary/20" :
-              state === "speaking" ? "border-chart-2 bg-chart-2/20" :
-              state === "error" ? "border-destructive bg-destructive/20" :
+              visualState === "connecting" ? "border-primary bg-primary/10" :
+              visualState === "listening" ? "border-primary bg-primary/20" :
+              visualState === "speaking" ? "border-chart-2 bg-chart-2/20" :
+              visualState === "error" ? "border-destructive bg-destructive/20" :
               "border-border bg-muted/30"
             }`}
             data-testid="visualizer-voice"
@@ -231,6 +254,17 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-6" data-testid="content-conversation">
+          {transcript && (
+            <div className="bg-primary/10 rounded-2xl p-4 mb-4 border border-primary/20">
+              <h3 className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">
+                Conversation
+              </h3>
+              <p className="text-[15px] text-foreground/90 whitespace-pre-wrap">
+                {transcript}
+              </p>
+            </div>
+          )}
+
           <div className="bg-muted/30 rounded-2xl p-4 mb-4">
             <p className="text-[15px] font-medium text-foreground/90">
               {content.greeting}
