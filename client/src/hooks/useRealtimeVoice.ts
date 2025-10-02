@@ -12,6 +12,7 @@ export function useRealtimeVoice({ company, enabled }: UseRealtimeVoiceProps) {
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [conversationState, setConversationState] = useState<ConversationState>("idle");
   const [transcript, setTranscript] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -76,7 +77,23 @@ export function useRealtimeVoice({ company, enabled }: UseRealtimeVoiceProps) {
       processorRef.current = processor;
     } catch (error) {
       console.error("Microphone error:", error);
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      
       setConnectionState("error");
+      
+      if (errMsg.includes("Permission denied") || errMsg.includes("NotAllowedError")) {
+        setErrorMessage("Microphone access denied. Please allow microphone permissions and try again.");
+      } else if (errMsg.includes("NotFoundError") || errMsg.includes("not found")) {
+        setErrorMessage("No microphone found. Please connect a microphone and try again.");
+      } else {
+        setErrorMessage("Failed to access microphone. Please check your device settings.");
+      }
+      
+      // Close WebSocket since we can't use voice without microphone
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     }
   }, [initAudioContext]);
 
@@ -140,16 +157,22 @@ export function useRealtimeVoice({ company, enabled }: UseRealtimeVoiceProps) {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     setConnectionState("connecting");
+    setErrorMessage("");
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/api/realtime?company=${encodeURIComponent(company)}`;
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
-    ws.onopen = () => {
-      console.log("WebSocket connected");
+    ws.onopen = async () => {
+      console.log("WebSocket connected, starting microphone...");
       setConnectionState("connected");
-      startMicrophone();
+      try {
+        await startMicrophone();
+        console.log("Microphone started successfully");
+      } catch (error) {
+        console.error("Failed to start microphone:", error);
+      }
     };
 
     ws.onmessage = (event) => {
@@ -212,13 +235,15 @@ export function useRealtimeVoice({ company, enabled }: UseRealtimeVoiceProps) {
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
       setConnectionState("error");
+      setErrorMessage("Connection failed. Please check your internet connection and try again.");
       cleanup();
       wsRef.current = null;
     };
 
     ws.onclose = () => {
       console.log("WebSocket closed");
-      setConnectionState("idle");
+      // Only reset to idle if there's no error
+      setConnectionState((prev) => prev === "error" ? "error" : "idle");
       setConversationState("idle");
       cleanup();
       wsRef.current = null;
@@ -236,6 +261,7 @@ export function useRealtimeVoice({ company, enabled }: UseRealtimeVoiceProps) {
     setConnectionState("idle");
     setConversationState("idle");
     setTranscript("");
+    setErrorMessage("");
   }, [cleanup]);
 
   useEffect(() => {
@@ -254,6 +280,8 @@ export function useRealtimeVoice({ company, enabled }: UseRealtimeVoiceProps) {
     connectionState,
     conversationState,
     transcript,
+    errorMessage,
+    connect,
     disconnect,
   };
 }

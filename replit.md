@@ -50,6 +50,11 @@ Preferred communication style: Simple, everyday language.
 - Backend acts as secure gateway, injecting API keys and company-specific instructions
 - Audio streaming in both directions: microphone input (24kHz, 16-bit PCM) and AI response audio
 - Dynamic instruction generation based on company type (bakery, restaurant, clinic, hotel, etc.)
+- Comprehensive error handling with specific user feedback:
+  - Microphone permission denied: Prompts user to allow permissions
+  - No microphone device: Alerts user to connect a microphone
+  - WebSocket connection failure: Suggests checking internet connection
+  - Error states preserved until user reconnects or closes modal
 
 **Data Storage:**
 - In-memory storage implementation via `MemStorage` class

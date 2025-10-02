@@ -119,7 +119,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
   const [isMuted, setIsMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
 
-  const { connectionState, conversationState, transcript, disconnect } = useRealtimeVoice({
+  const { connectionState, conversationState, transcript, errorMessage, disconnect } = useRealtimeVoice({
     company,
     enabled: isOpen,
   });
@@ -191,7 +191,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
         {connectionState === "error" && (
           <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
             <p className="text-sm text-center text-destructive font-medium" data-testid="status-error">
-              Connection lost. Please try again.
+              {errorMessage || "Connection lost. Please try again."}
             </p>
           </div>
         )}
