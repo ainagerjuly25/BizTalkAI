@@ -224,7 +224,21 @@ export function useRealtimeVoice({ company, enabled }: UseRealtimeVoiceProps) {
 
           case "error":
             console.error("OpenAI error:", message.error);
+            
+            // Ignore empty buffer errors - they happen when VAD triggers but user hasn't spoken enough
+            if (message.error?.code === "input_audio_buffer_commit_empty") {
+              console.log("Ignoring empty buffer error - waiting for more audio");
+              setConversationState("idle");
+              break;
+            }
+            
+            // Handle other errors
             setConnectionState("error");
+            if (message.error?.message) {
+              setErrorMessage(`AI service error: ${message.error.message}`);
+            } else {
+              setErrorMessage("An error occurred with the AI service. Please try again.");
+            }
             break;
         }
       } catch (error) {
