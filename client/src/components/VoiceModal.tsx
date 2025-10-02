@@ -195,9 +195,6 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
             <div className="text-5xl font-bold text-foreground/60">
               {companyInitial}
             </div>
-            {state === "connecting" && (
-              <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-            )}
           </div>
         </div>
 
