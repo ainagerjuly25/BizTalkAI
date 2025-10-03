@@ -15,7 +15,7 @@ export default function SearchBar({ value, onChange, onSearch }: SearchBarProps)
   };
 
   return (
-    <div className="flex gap-2 px-4 pb-3">
+    <div className="flex gap-1.5 px-4 pb-3">
       <input
         type="text"
         value={value}
@@ -29,10 +29,10 @@ export default function SearchBar({ value, onChange, onSearch }: SearchBarProps)
       <Button
         onClick={onSearch}
         size="default"
-        className="h-11 px-2 sm:px-4 rounded-xl font-semibold"
+        className="h-11 px-2.5 sm:px-4 rounded-xl font-semibold shrink-0"
         data-testid="button-search"
       >
-        <Search className="w-4 h-4 mr-2" />
+        <Search className="w-4 h-4 mr-1" />
         Search
       </Button>
     </div>
