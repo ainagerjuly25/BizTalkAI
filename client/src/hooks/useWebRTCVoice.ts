@@ -104,7 +104,7 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
         
         // Generate company-specific instructions
         const companyLower = company.toLowerCase();
-        let instructions = `You are an AI assistant working as the Enterprise Front Manager for ${company}, a hypothetical company based in Dubai. You are professional, helpful, and knowledgeable about the company's services. `;
+        let instructions = `You are an AI assistant working as the Enterprise Front/Friend Ainager for ${company}, a hypothetical company based in Dubai. You are professional, helpful, and knowledgeable about the company's services. `;
 
         if (companyLower.includes("bakery")) {
           instructions += `You work at a bakery that offers fresh bread baked daily from 6 AM, specialty pastries, custom cakes, gluten-free options, and catering services. Help customers with orders, answer questions about products, and provide information about our services.`;
