@@ -51,6 +51,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { voice = "marin", model = "gpt-realtime", company = "" } = req.body;
 
+      console.log(`[Session] Creating session for company: "${company}"`);
+
       const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
       
       if (!OPENAI_API_KEY) {
@@ -72,7 +74,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Add company-specific instructions if company is provided
       if (company) {
-        sessionBody.instructions = getCompanyInstructions(company);
+        const instructions = getCompanyInstructions(company);
+        sessionBody.instructions = instructions;
+        console.log(`[Session] Added instructions for "${company}": ${instructions.substring(0, 100)}...`);
+      } else {
+        console.log('[Session] No company provided, using default behavior');
       }
 
       const sessionResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
