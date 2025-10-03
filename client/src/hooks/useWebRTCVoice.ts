@@ -55,7 +55,8 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           voice: state.selectedVoice,
-          model: "gpt-4o-realtime-preview-2024-10-01" 
+          model: "gpt-4o-realtime-preview-2024-10-01",
+          company: company
         }),
       });
 
@@ -170,7 +171,7 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
       // Cleanup on error
       stopSession();
     }
-  }, [state.selectedVoice, logActivity, updateConnectionStatus]);
+  }, [company, state.selectedVoice, logActivity, updateConnectionStatus]);
 
   const stopSession = useCallback(() => {
     logActivity("Stopping session...");
