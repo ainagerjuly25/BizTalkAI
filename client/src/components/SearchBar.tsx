@@ -29,7 +29,7 @@ export default function SearchBar({ value, onChange, onSearch }: SearchBarProps)
       <Button
         onClick={onSearch}
         size="default"
-        className="h-11 px-4 rounded-xl font-semibold"
+        className="h-11 px-2 sm:px-4 rounded-xl font-semibold"
         data-testid="button-search"
       >
         <Search className="w-4 h-4 mr-2" />
