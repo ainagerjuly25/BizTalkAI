@@ -31,7 +31,7 @@ export default function DirectoryHeader() {
           >
             {isFriend ? "Friend" : "Front"}
           </span>{" "}
-          Manager
+          Ainager
         </p>
       </div>
     </div>
