@@ -5,7 +5,7 @@ import type { IncomingMessage } from "http";
 function getCompanyInstructions(company: string): string {
   const companyLower = company.toLowerCase();
 
-  let baseInstructions = `You are an AI assistant working as the front desk manager for ${company}. You are professional, helpful, and knowledgeable about the company's services. `;
+  let baseInstructions = `You are an AI assistant working as the Enterprise Front Manager for ${company}, a hypothetical company based in Dubai. You are professional, helpful, and knowledgeable about the company's services. `;
 
   if (companyLower.includes("bakery")) {
     baseInstructions += `You work at a bakery that offers fresh bread baked daily from 6 AM, specialty pastries, custom cakes, gluten-free options, and catering services. Help customers with orders, answer questions about products, and provide information about our services.`;
@@ -29,7 +29,7 @@ function getCompanyInstructions(company: string): string {
     baseInstructions += `You provide professional business services with a customer-focused approach. Help callers with their inquiries and provide information about your services.`;
   }
 
-  baseInstructions += ` Be conversational, warm, and helpful. Answer questions clearly and concisely.`;
+  baseInstructions += ` Be conversational, warm, and helpful. Answer questions clearly and concisely. Since this is a demo, you can provide reasonable and professional responses based on the company name and type. Always mention that we are located in Dubai when relevant.`;
 
   return baseInstructions;
 }
