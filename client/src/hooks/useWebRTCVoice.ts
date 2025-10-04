@@ -2,6 +2,13 @@ import { useState, useRef, useCallback } from "react";
 
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "error" | "disconnected";
 
+export interface TranscriptionMessage {
+  id: string;
+  speaker: "Efa" | "You";
+  text: string;
+  timestamp: string;
+}
+
 export interface VoiceChatState {
   connectionStatus: ConnectionStatus;
   isSessionActive: boolean;
@@ -9,6 +16,7 @@ export interface VoiceChatState {
   sessionId: string | null;
   latency: number | null;
   activityLogs: Array<{ timestamp: string; message: string }>;
+  transcription: TranscriptionMessage[];
 }
 
 export interface UseWebRTCVoiceProps {
@@ -24,6 +32,7 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
     sessionId: null,
     latency: null,
     activityLogs: [],
+    transcription: [],
   });
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -36,6 +45,17 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
     setState(prev => ({
       ...prev,
       activityLogs: [...prev.activityLogs, { timestamp, message }],
+    }));
+  }, []);
+
+  const addTranscriptionMessage = useCallback((speaker: "Efa" | "You", text: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const message: TranscriptionMessage = { id, speaker, text, timestamp };
+    
+    setState(prev => ({
+      ...prev,
+      transcription: [...prev.transcription, message],
     }));
   }, []);
 
@@ -140,6 +160,9 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
             input_audio_transcription: {
               model: "whisper-1"
             },
+            output_audio_transcription: {
+              model: "whisper-1"
+            },
             turn_detection: {
               type: "server_vad",
               threshold: 0.5,
@@ -151,7 +174,58 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
         dataChannel.send(JSON.stringify(sessionConfig));
         logActivity(`Sent session config for ${company}`);
       };
-      dataChannel.onmessage = (event) => logActivity(`Data channel message: ${event.data}`);
+      
+      dataChannel.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          logActivity(`Data channel message: ${JSON.stringify(data, null, 2)}`);
+          
+          // Handle different message types
+          if (data.type === "conversation.item.input_audio_transcription.completed") {
+            // User speech transcribed
+            const transcript = data.transcript;
+            if (transcript) {
+              logActivity(`User transcript: ${transcript}`);
+              addTranscriptionMessage("You", transcript);
+            }
+          } else if (data.type === "conversation.item.input_audio_transcription.failed") {
+            logActivity("User transcription failed");
+          } else if (data.type === "input_audio_buffer.speech_started") {
+            logActivity("User started speaking");
+          } else if (data.type === "input_audio_buffer.speech_stopped") {
+            logActivity("User stopped speaking");
+          } else if (data.type === "response.audio_transcript.delta") {
+            // AI response transcription in progress
+            if (data.delta) {
+              logActivity(`AI transcript delta: ${data.delta}`);
+            }
+          } else if (data.type === "response.audio_transcript.done") {
+            // AI response transcription completed
+            const transcript = data.transcript;
+            if (transcript) {
+              logActivity(`AI transcript: ${transcript}`);
+              addTranscriptionMessage("Efa", transcript);
+            }
+          } else if (data.type === "response.done") {
+            // AI response completed - check if we have a transcript
+            if (data.response && data.response.output && data.response.output.length > 0) {
+              const lastOutput = data.response.output[data.response.output.length - 1];
+              if (lastOutput.type === "message" && lastOutput.content) {
+                // Extract text content from the response
+                const textContent = lastOutput.content.find((item: any) => item.type === "text");
+                if (textContent && textContent.text) {
+                  logActivity(`AI response text: ${textContent.text}`);
+                  addTranscriptionMessage("Efa", textContent.text);
+                }
+              }
+            }
+          } else if (data.type === "error") {
+            logActivity(`Error: ${data.error?.message || 'Unknown error'}`);
+          }
+        } catch (error) {
+          logActivity(`Data channel message (raw): ${event.data}`);
+        }
+      };
 
       // Step 6: Handle incoming audio stream
       pc.ontrack = (event) => {
@@ -172,6 +246,22 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
             isSessionActive: true, 
             sessionId: session.id || `sess_${Math.random().toString(36).substr(2, 9)}`,
           }));
+          
+          // Add initial greeting from EFA
+          const companyLower = company.toLowerCase();
+          let greeting = "Hello! Thank you for calling. How may I assist you today?";
+          
+          if (companyLower.includes("restaurant")) {
+            greeting = "Good day! Thank you for calling. What can I do for you?";
+          } else if (companyLower.includes("hotel")) {
+            greeting = "Welcome! Thank you for contacting us. How can I help?";
+          } else if (companyLower.includes("clinic") || companyLower.includes("health")) {
+            greeting = "Hello, you've reached our clinic. How may I assist you?";
+          } else if (companyLower.includes("bank")) {
+            greeting = "Hello! You've reached our banking services. What can I help you with?";
+          }
+          
+          addTranscriptionMessage("EFA", greeting);
           
           // Start latency monitoring
           latencyCheckIntervalRef.current = setInterval(() => {
@@ -222,7 +312,7 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
       // Cleanup on error
       stopSession();
     }
-  }, [company, state.selectedVoice, logActivity, updateConnectionStatus]);
+  }, [company, state.selectedVoice, logActivity, updateConnectionStatus, addTranscriptionMessage]);
 
   const stopSession = useCallback(() => {
     logActivity("Stopping session...");
@@ -256,6 +346,7 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
       isSessionActive: false,
       sessionId: null,
       latency: null,
+      transcription: [],
     }));
 
     logActivity("Session ended");
@@ -270,5 +361,6 @@ export function useWebRTCVoice({ company, enabled }: UseWebRTCVoiceProps) {
     startSession,
     stopSession,
     setAudioElement,
+    addTranscriptionMessage,
   };
 }

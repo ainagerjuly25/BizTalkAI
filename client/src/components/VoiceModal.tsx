@@ -1,6 +1,6 @@
 import { X, Mic, MicOff, Volume2, VolumeX, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWebRTCVoice } from "@/hooks/useWebRTCVoice";
 
 interface VoiceModalProps {
@@ -118,16 +118,23 @@ const getCompanyContent = (company: string) => {
 export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
+  const transcriptionEndRef = useRef<HTMLDivElement>(null);
 
   const { 
     state,
     startSession,
     stopSession,
-    setAudioElement
+    setAudioElement,
+    addTranscriptionMessage
   } = useWebRTCVoice({
     company,
     enabled: isOpen,
   });
+
+  // Simple log function for debugging
+  const logActivity = (message: string) => {
+    console.log(`[VoiceModal] ${message}`);
+  };
 
   // Set up audio element for playback
   useEffect(() => {
@@ -148,6 +155,54 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
     };
   }, [setAudioElement]);
 
+  // Auto-start session when modal opens
+  useEffect(() => {
+    if (isOpen && state.connectionStatus === "idle") {
+      startSession();
+    }
+  }, [isOpen, state.connectionStatus, startSession]);
+
+  // Add demo messages when session is connected (only for testing)
+  useEffect(() => {
+    if (state.connectionStatus === "connected" && state.transcription.length === 0) {
+      // Don't add automatic greeting - let the real transcription handle it
+      logActivity("Session connected - ready for real-time transcription");
+    }
+  }, [state.connectionStatus, state.transcription.length, addTranscriptionMessage]);
+
+  // Demo function to simulate user input
+  const simulateUserInput = () => {
+    const userMessages = [
+      "Hi, I'd like to make a reservation",
+      "What are your opening hours?",
+      "Do you have vegetarian options?",
+      "Can I get a table for 4 people?",
+      "What's your address?"
+    ];
+    const randomMessage = userMessages[Math.floor(Math.random() * userMessages.length)];
+    addTranscriptionMessage("You", randomMessage);
+    
+    // Simulate Efa response after a delay
+    setTimeout(() => {
+      const efaResponses = [
+        "Of course! I'd be happy to help you with that reservation.",
+        "We're open from 11 AM to 10 PM daily.",
+        "Yes, we have several delicious vegetarian options on our menu.",
+        "Absolutely! Let me check availability for 4 people.",
+        "We're located at 123 Main Street, Dubai."
+      ];
+      const randomResponse = efaResponses[Math.floor(Math.random() * efaResponses.length)];
+      addTranscriptionMessage("Efa", randomResponse);
+    }, 1000);
+  };
+
+
+  // Auto-scroll to bottom when new messages are added
+  useEffect(() => {
+    transcriptionEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [state.transcription]);
+
+
   if (!isOpen) return null;
 
   const companyInitial = company.charAt(0).toUpperCase();
@@ -166,6 +221,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
     stopSession();
     onClose();
   };
+
 
   return (
     <div
@@ -190,7 +246,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <div className="flex-1">
             <h2 className="text-lg font-semibold" data-testid="text-company-name">{company}</h2>
-            <p className="text-[13px] text-muted-foreground">AI Assistant</p>
+            <p className="text-[13px] text-muted-foreground">Enterprise Friend Manager</p>
           </div>
           <Button
             variant="ghost"
@@ -221,44 +277,19 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
         {state.connectionStatus === "connected" && (
           <div className="px-4 py-2 bg-chart-2/10 border-b border-chart-2/20">
             <p className="text-sm text-center text-chart-2 font-medium" data-testid="status-ready">
-              Connected - Start speaking! {state.latency && `(${state.latency}ms)`}
+              {isDemoMode ? "Demo Mode - Use buttons to simulate conversation" : "Connected - Start speaking!"} {state.latency && `(${state.latency}ms)`}
             </p>
           </div>
         )}
 
-        <div className="flex items-center justify-center py-8">
-          <div
-            className={`w-32 h-32 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${
-              visualState === "connecting" ? "border-primary bg-primary/10" :
-              visualState === "connected" ? "border-chart-2 bg-chart-2/20" :
-              visualState === "error" ? "border-destructive bg-destructive/20" :
-              "border-border bg-muted/30"
-            }`}
-            data-testid="visualizer-voice"
-          >
-            <div className="text-5xl font-bold text-foreground/60">
-              {companyInitial}
-            </div>
+        {/* New Call Controls Layout */}
+        <div className="flex items-center justify-center gap-8 py-8">
+          {/* Large Green Phone Icon */}
+          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+            <Phone className="w-8 h-8 text-white" />
           </div>
-        </div>
 
-        <div className="flex items-center justify-center gap-6 px-4 pb-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-12 h-12"
-            onClick={() => {
-              if (state.isSessionActive) {
-                stopSession();
-              } else {
-                startSession();
-              }
-            }}
-            data-testid="button-mic"
-          >
-            {state.isSessionActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </Button>
-
+          {/* Red End Call Button */}
           <Button
             variant="destructive"
             size="icon"
@@ -269,6 +300,7 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
             <Phone className="w-6 h-6 rotate-[135deg]" />
           </Button>
 
+          {/* Speaker Icon */}
           <Button
             variant="ghost"
             size="icon"
@@ -280,44 +312,56 @@ export default function VoiceModal({ company, isOpen, onClose }: VoiceModalProps
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-6" data-testid="content-conversation">
-          {/* Debug info - only show in development */}
-          {process.env.NODE_ENV === 'development' && state.activityLogs.length > 0 && (
-            <div className="bg-muted/20 rounded-2xl p-4 mb-4 border border-muted/30">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                Debug Log ({state.activityLogs.length} entries)
-              </h3>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {state.activityLogs.slice(-5).map((log, index) => (
-                  <div key={index} className="text-xs text-muted-foreground">
-                    <span className="font-mono">{log.timestamp}</span> - {log.message}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="bg-muted/30 rounded-2xl p-4 mb-4">
-            <p className="text-[15px] font-medium text-foreground/90">
-              {content.greeting}
-            </p>
-          </div>
-
-          <div className="space-y-3">
+        {/* Chat Transcript Section */}
+        <div className="flex-1 overflow-y-auto px-4 pb-6">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Quick Info
+              Chat transcript
             </h3>
-            {content.info.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-3 bg-card/50 rounded-xl p-3 border border-border/50"
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2" />
-                <p className="text-[15px] text-foreground/80 flex-1">{item}</p>
+            {/* Demo buttons for testing */}
+            {process.env.NODE_ENV === 'development' && state.connectionStatus === "connected" && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={simulateUserInput}
+                  className="text-xs"
+                >
+                  🎯 Simulate
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addTranscriptionMessage("You", "Test user message")}
+                  className="text-xs"
+                >
+                  👤 Test User
+                </Button>
+              </div>
+            )}
+          </div>
+          
+          <div className="space-y-2">
+            {state.transcription.map((message, index) => (
+              <div key={message.id} className="text-sm">
+                <span className="font-medium text-foreground">
+                  {message.speaker}:
+                </span>
+                <span 
+                  className={`ml-2 ${
+                    index === state.transcription.length - 1 && message.speaker === "You"
+                      ? "text-red-500 underline decoration-red-500 decoration-wavy"
+                      : "text-foreground"
+                  }`}
+                >
+                  {message.text}
+                </span>
               </div>
             ))}
+            <div ref={transcriptionEndRef} />
           </div>
         </div>
+
       </div>
     </div>
   );
